@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Explorer 7th Grade - Interactive English Learning</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Fredoka & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Fredoka', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        },
+                        accent: {
+                            yellow: '#fef08a',
+                            orange: '#f97316',
+                            purple: '#a855f7',
+                            green: '#22c55e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .clock-canvas {
+            touch-action: none;
+        }
+        @keyframes bounce-subtle {
+            0%, 100% { transform: translateY(-3%); }
+            50% { transform: translateY(0); }
+        }
+        .animate-bounce-subtle {
+            animation: bounce-subtle 2s infinite ease-in-out;
+        }
+        @media print {
+            header, nav, button, .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-brand-500 selection:text-white">
+
+    <script>
+        // Sound Synthesizer using Web Audio API (No external sound files required)
+        const SoundFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playCorrect() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            },
+            playWrong() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now); // A3
+                osc.frequency.exponentialRampToValueAtTime(164.81, now + 0.2); // E3
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            },
+            playClick() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        };
+    </script>
+
+    <header id="app-header" class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50 hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('material')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid font-bold fa-clock text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-display font-bold text-lg text-slate-800 leading-none">Time Explorer</h1>
+                    <span class="text-xs text-brand-600 font-semibold">Grade 7 English</span>
+                </div>
+            </div>
+
+            <!-- Main Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-1 font-medium text-sm">
+                <button id="nav-material" onclick="switchTab('material')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-brand-500"></i> Material
+                </button>
+                <button id="nav-practice" onclick="switchTab('practice')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-pen-ruler text-amber-500"></i> Practice (10 MCQs)
+                </button>
+                <button id="nav-assessment" onclick="switchTab('assessment')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check text-emerald-500"></i> Assessment
+                </button>
+                <button id="nav-minigame" onclick="switchTab('minigame')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad text-purple-500"></i> Mini Game
+                </button>
+                <button id="nav-reflection" onclick="switchTab('reflection')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-face-smile text-rose-500"></i> Reflection
+                </button>
+                <button id="nav-recap" onclick="switchTab('recap')" class="nav-btn px-3 py-2 rounded-lg text-slate-600 hover:text-brand-600 hover:bg-slate-100 transition flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-indigo-500"></i> Recap Report
+                </button>
+            </nav>
+
+            <!-- User Badge -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-50 border border-brand-100 rounded-full px-3 py-1 flex items-center gap-2 text-xs font-semibold text-brand-700">
+                    <i class="fa-solid fa-user-graduate text-brand-500"></i>
+                    <span id="display-user-name">Student</span>
+                    <span class="bg-brand-200 text-brand-800 px-1.5 py-0.5 rounded-full text-[10px]" id="display-user-class">CLASS 7A</span>
+                </div>
+                <button onclick="editIdentity()" class="text-xs text-slate-400 hover:text-slate-600 p-1" title="Change Identity">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Bar -->
+        <div class="md:hidden border-t border-slate-100 bg-slate-50 flex justify-around py-2 text-xs font-medium text-slate-600 overflow-x-auto">
+            <button onclick="switchTab('material')" class="flex flex-col items-center gap-1 text-brand-600 px-2">
+                <i class="fa-solid fa-book-open"></i> Learn
+            </button>
+            <button onclick="switchTab('practice')" class="flex flex-col items-center gap-1 px-2">
+                <i class="fa-solid fa-pen-ruler"></i> Practice
+            </button>
+            <button onclick="switchTab('assessment')" class="flex flex-col items-center gap-1 px-2">
+                <i class="fa-solid fa-clipboard-check"></i> Test
+            </button>
+            <button onclick="switchTab('minigame')" class="flex flex-col items-center gap-1 px-2">
+                <i class="fa-solid fa-gamepad"></i> Game
+            </button>
+            <button onclick="switchTab('reflection')" class="flex flex-col items-center gap-1 px-2">
+                <i class="fa-solid fa-face-smile"></i> Journal
+            </button>
+            <button onclick="switchTab('recap')" class="flex flex-col items-center gap-1 px-2">
+                <i class="fa-solid fa-chart-line"></i> Recap
+            </button>
+        </div>
+    </header>
+
+    <main id="section-identity" class="flex-grow flex items-center justify-center p-4">
+        <div class="bg-white max-w-md w-full rounded-3xl shadow-xl border border-slate-100 p-8 text-center relative overflow-hidden">
+            <!-- Decorative Background Glows -->
+            <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-200 rounded-full blur-2xl opacity-60"></div>
+            <div class="absolute -bottom-12 -left-12 w-32 h-32 bg-purple-200 rounded-full blur-2xl opacity-60"></div>
+
+            <div class="relative z-10">
+                <div class="w-20 h-20 bg-gradient-to-tr from-brand-500 to-indigo-600 text-white rounded-3xl mx-auto flex items-center justify-center shadow-lg shadow-brand-500/30 mb-6 animate-bounce-subtle">
+                    <i class="fa-solid fa-clock text-4xl"></i>
+                </div>
+
+                <h1 class="font-display font-bold text-3xl text-slate-800 mb-2">Welcome Explorer!</h1>
+                <p class="text-sm text-slate-500 mb-8">English Learning Media: <span class="font-semibold text-brand-600">Telling Time</span> for Grade 7</p>
+
+                <form id="identity-form" onsubmit="saveIdentity(event)" class="space-y-4 text-left">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Student Full Name</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-4 top-3.5 text-slate-400"></i>
+                            <input type="text" id="input-name" required placeholder="e.g. Alex Johnson" class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition text-sm font-medium">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Class (7A - 7I)</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-users-rectangle absolute left-4 top-3.5 text-slate-400"></i>
+                            <select id="input-class" required class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition text-sm font-medium">
+                                <option value="CLASS 7A">CLASS 7A</option>
+                                <option value="CLASS 7B">CLASS 7B</option>
+                                <option value="CLASS 7C">CLASS 7C</option>
+                                <option value="CLASS 7D">CLASS 7D</option>
+                                <option value="CLASS 7E">CLASS 7E</option>
+                                <option value="CLASS 7F">CLASS 7F</option>
+                                <option value="CLASS 7G">CLASS 7G</option>
+                                <option value="CLASS 7H">CLASS 7H</option>
+                                <option value="CLASS 7I">CLASS 7I</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-4 mt-2 bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 text-white font-display font-semibold text-lg rounded-xl shadow-lg shadow-brand-500/25 transition active:scale-[0.98] flex items-center justify-center gap-2">
+                        Start Adventure <i class="fa-solid fa-arrow-right text-sm"></i>
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-6 border-t border-slate-100 flex items-center justify-center gap-4 text-xs text-slate-400 font-medium">
+                    <span><i class="fa-solid fa-check text-emerald-500"></i> Interactive Clock</span>
+                    <span><i class="fa-solid fa-check text-emerald-500"></i> 10 Practice MCQs</span>
+                    <span><i class="fa-solid fa-check text-emerald-500"></i> 20 Test Items</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-material" class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <!-- Welcome Banner -->
+        <div class="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-2 text-center md:text-left">
+                <span class="inline-block bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase">Lesson Module</span>
+                <h2 class="font-display text-3xl sm:text-4xl font-bold">How to Tell Time in English ⏰</h2>
+                <p class="text-brand-100 text-sm max-w-xl">Master reading analog clocks, expressions (o'clock, half past, a quarter to/past), and distinguish between A.M. and P.M.</p>
+            </div>
+            <div class="flex gap-3">
+                <a href="#interactive-clock-demo" class="px-5 py-3 bg-white text-brand-700 font-display font-semibold rounded-2xl shadow-md hover:bg-brand-50 transition text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-sliders"></i> Try Live Clock Sandbox
+                </a>
+            </div>
+        </div>
+
+        <!-- Material Topic Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            
+            <!-- Card 1: Analog vs Digital -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4">
+                    <i class="fa-solid fa-regular fa-clock"></i>
+                </div>
+                <h3 class="font-display font-bold text-lg text-slate-800 mb-2">1. Analog vs Digital Time</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    <strong>Analog Clock:</strong> Has 12 numbers and 2 main hands: 
+                    <span class="text-rose-500 font-semibold">Short hand (Hour)</span> and 
+                    <span class="text-brand-500 font-semibold">Long hand (Minute)</span>.
+                </p>
+                <div class="bg-slate-50 p-3 rounded-xl text-xs space-y-1 font-mono text-slate-700">
+                    <p>📟 <strong>Digital:</strong> 08:15 = "Eight fifteen"</p>
+                    <p>🕒 <strong>Analog:</strong> 08:15 = "A quarter past eight"</p>
+                </div>
+            </div>
+
+            <!-- Card 2: AM vs PM -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl mb-4">
+                    <i class="fa-solid fa-sun-plant-wilt"></i>
+                </div>
+                <h3 class="font-display font-bold text-lg text-slate-800 mb-2">2. A.M. vs P.M.</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    In English, we use 12-hour format with <strong>A.M.</strong> and <strong>P.M.</strong>
+                </p>
+                <div class="space-y-2 text-xs">
+                    <div class="flex items-center gap-2 bg-amber-50 p-2.5 rounded-xl text-amber-900 border border-amber-200/50">
+                        <i class="fa-solid fa-sun text-amber-500 text-base"></i>
+                        <div>
+                            <strong>a.m. (Ante Meridiem)</strong><br>
+                            12:00 Midnight to 11:59 Morning (e.g. 7:00 a.m. Breakfast)
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-indigo-50 p-2.5 rounded-xl text-indigo-900 border border-indigo-200/50">
+                        <i class="fa-solid fa-moon text-indigo-500 text-base"></i>
+                        <div>
+                            <strong>p.m. (Post Meridiem)</strong><br>
+                            12:00 Noon to 11:59 Night (e.g. 8:00 p.m. Sleep)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Key Vocabulary -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <h3 class="font-display font-bold text-lg text-slate-800 mb-2">3. Key Terms</h3>
+                <ul class="text-xs space-y-2 text-slate-700">
+                    <li class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                        <span class="font-semibold text-emerald-600">O'clock</span>
+                        <span>When minute hand is at 12 (00 min)</span>
+                    </li>
+                    <li class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                        <span class="font-semibold text-emerald-600">A quarter</span>
+                        <span>15 minutes (1/4 of an hour)</span>
+                    </li>
+                    <li class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                        <span class="font-semibold text-emerald-600">Half past</span>
+                        <span>30 minutes (1/2 hour)</span>
+                    </li>
+                    <li class="p-2 bg-slate-50 rounded-lg flex justify-between items-center">
+                        <span class="font-semibold text-emerald-600">Past vs To</span>
+                        <span>Minutes 1-30: PAST | Minutes 31-59: TO</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Rule Diagram & Interactive Clock Sandbox -->
+        <div id="interactive-clock-demo" class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md">
+            <div class="text-center max-w-2xl mx-auto mb-8">
+                <h3 class="font-display font-bold text-2xl text-slate-800">Interactive Clock Sandbox 🛠️</h3>
+                <p class="text-slate-500 text-sm mt-1">Move sliders or click preset times to see how analog time translates to English speech!</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <!-- Clock Display -->
+                <div class="flex flex-col items-center justify-center bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <canvas id="material-clock-canvas" width="260" height="260" class="clock-canvas bg-white rounded-full shadow-inner border-4 border-slate-800"></canvas>
+                    
+                    <div class="mt-4 flex items-center gap-3 bg-slate-900 text-emerald-400 px-6 py-2 rounded-xl font-mono text-2xl font-bold shadow-md">
+                        <span id="sandbox-digital-time">07:15</span>
+                        <span id="sandbox-ampm" class="text-xs text-slate-400 uppercase">AM</span>
+                    </div>
+                </div>
+
+                <!-- Clock Controls & Explanations -->
+                <div class="space-y-6">
+                    <!-- Interactive Sliders -->
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                                <span>Hour: <strong id="val-hour" class="text-brand-600 text-sm">7</strong></span>
+                                <span>1 to 12</span>
+                            </div>
+                            <input type="range" id="slider-hour" min="1" max="12" value="7" class="w-full accent-brand-500 cursor-pointer" oninput="updateSandboxClock()">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                                <span>Minute: <strong id="val-minute" class="text-brand-600 text-sm">15</strong></span>
+                                <span>0 to 59 mins</span>
+                            </div>
+                            <input type="range" id="slider-minute" min="0" max="59" value="15" class="w-full accent-brand-500 cursor-pointer" oninput="updateSandboxClock()">
+                        </div>
+
+                        <div class="flex items-center gap-4 pt-2">
+                            <span class="text-xs font-semibold text-slate-600">Period:</span>
+                            <button id="btn-toggle-am" onclick="setPeriod('AM')" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-amber-400 text-slate-900 shadow-sm transition">☀️ A.M.</button>
+                            <button id="btn-toggle-pm" onclick="setPeriod('PM')" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 transition">🌙 P.M.</button>
+                        </div>
+                    </div>
+
+                    <!-- Spoken English Box -->
+                    <div class="bg-gradient-to-br from-brand-50 to-indigo-50 border border-brand-200/60 p-4 rounded-2xl space-y-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-brand-600 block">How to say it in English:</span>
+                        <p id="sandbox-english-text" class="font-display font-bold text-xl text-slate-800">"It's a quarter past seven."</p>
+                        <p id="sandbox-explanation" class="text-xs text-slate-600">Minute is 15 (quarter), so we use <strong>quarter past</strong> [hour].</p>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div>
+                        <span class="text-xs font-semibold text-slate-500 block mb-2">Try common patterns:</span>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <button onclick="setSandboxTime(4, 0)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium transition">4:00 (O'clock)</button>
+                            <button onclick="setSandboxTime(7, 15)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium transition">7:15 (Quarter past)</button>
+                            <button onclick="setSandboxTime(9, 30)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium transition">9:30 (Half past)</button>
+                            <button onclick="setSandboxTime(10, 45)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium transition">10:45 (Quarter to)</button>
+                            <button onclick="setSandboxTime(5, 50)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-medium transition">5:50 (Ten to)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-practice" class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <div class="text-center mb-8">
+            <span class="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">Guided Practice (10 Questions)</span>
+            <h2 class="font-display font-bold text-3xl text-slate-800 mt-2">Practice Telling Time ✏️</h2>
+            <p class="text-slate-500 text-sm">Test your skills step-by-step with interactive clocks and randomized choices before taking the final test!</p>
+        </div>
+
+        <!-- Practice Card Container -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8">
+            <!-- Progress Indicator -->
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 mb-6">
+                <span id="practice-progress-text">Question 1 of 10</span>
+                <span id="practice-score-text" class="text-emerald-600 font-bold">Practice Score: 0/100</span>
+            </div>
+
+            <div id="practice-box" class="space-y-6">
+                <!-- Practice question dynamically rendered here -->
+            </div>
+
+            <!-- Practice Feedback Banner -->
+            <div id="practice-feedback" class="mt-6 p-4 rounded-xl hidden flex items-start gap-3 text-sm">
+                <i id="practice-feedback-icon" class="text-xl mt-0.5"></i>
+                <div id="practice-feedback-msg" class="font-medium"></div>
+            </div>
+
+            <!-- Navigation Actions -->
+            <div class="mt-8 flex justify-between items-center pt-4 border-t border-slate-100">
+                <button id="btn-practice-prev" onclick="changePracticeQuestion(-1)" class="px-4 py-2 bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-semibold rounded-xl transition disabled:opacity-50">
+                    <i class="fa-solid fa-arrow-left"></i> Previous
+                </button>
+                <button id="btn-practice-next" onclick="changePracticeQuestion(1)" class="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition shadow-md shadow-brand-500/20">
+                    Next <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-assessment" class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        
+        <!-- Header Banner -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+                <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">Formal Assessment</span>
+                <h2 class="font-display font-bold text-2xl sm:text-3xl text-slate-800 mt-1">English Time Assessment 📝</h2>
+                <p class="text-slate-500 text-xs sm:text-sm">20 Questions: 10 Multiple Choice, 5 Fill-in-the-Blank, 5 Randomized Matching Items.</p>
+            </div>
+            <div class="text-right">
+                <button id="btn-submit-assessment" onclick="submitAssessment()" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold rounded-2xl shadow-lg shadow-emerald-500/25 transition active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Assessment
+                </button>
+            </div>
+        </div>
+
+        <!-- Assessment Form / Container -->
+        <div id="assessment-container" class="space-y-8">
+            
+            <!-- PART 1: MULTIPLE CHOICE (10 QUESTIONS) -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 font-bold flex items-center justify-center text-sm">A</div>
+                    <h3 class="font-display font-bold text-xl text-slate-800">Part A: Multiple Choice Questions (10 Items)</h3>
+                </div>
+                <div id="mcq-questions-list" class="space-y-8">
+                    <!-- MCQ Items Rendered Dynamically -->
+                </div>
+            </div>
+
+            <!-- PART 2: FILL IN THE BLANK (5 QUESTIONS) -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+                    <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-sm">B</div>
+                    <h3 class="font-display font-bold text-xl text-slate-800">Part B: Fill in the Blanks (5 Items)</h3>
+                </div>
+                <div id="fill-questions-list" class="space-y-6">
+                    <!-- Fill Questions Rendered Dynamically -->
+                </div>
+            </div>
+
+            <!-- PART 3: MATCHING PAIRS (5 QUESTIONS - RANDOMIZED POSITIONS) -->
+            <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-sm">C</div>
+                        <h3 class="font-display font-bold text-xl text-slate-800">Part C: Time Matching (5 Items)</h3>
+                    </div>
+                    <span class="text-xs bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full font-semibold">🎲 Random Position Order</span>
+                </div>
+                <p class="text-xs text-slate-500 mb-6">Select the matching English phrase for each digital time. Options are randomly arranged!</p>
+                <div id="matching-questions-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Matching Items Rendered Dynamically -->
+                </div>
+            </div>
+
+            <div class="text-center py-4">
+                <button onclick="submitAssessment()" class="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold text-lg rounded-2xl shadow-xl shadow-emerald-500/25 transition active:scale-95">
+                    <i class="fa-solid fa-check-double mr-2"></i> Submit & View Score & Answer Key
+                </button>
+            </div>
+        </div>
+
+        <!-- Assessment Result Modal / Summary View -->
+        <div id="assessment-result-modal" class="hidden space-y-8 my-8">
+            <div class="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center space-y-6">
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-md">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Assessment Complete</span>
+                    <h3 class="font-display font-bold text-3xl text-slate-800 mt-1" id="res-student-name">Great Job!</h3>
+                    <p class="text-slate-500 text-sm" id="res-student-class">CLASS 7A</p>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span class="text-xs text-slate-400 font-medium block">Total Score</span>
+                        <span id="res-final-score" class="font-display font-bold text-3xl text-brand-600">85</span>
+                        <span class="text-[10px] text-slate-400 block">/ 100 pts</span>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span class="text-xs text-slate-400 font-medium block">MCQ Correct</span>
+                        <span id="res-mcq-score" class="font-display font-bold text-2xl text-emerald-600">8/10</span>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span class="text-xs text-slate-400 font-medium block">Fill-in Correct</span>
+                        <span id="res-fill-score" class="font-display font-bold text-2xl text-amber-600">4/5</span>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <span class="text-xs text-slate-400 font-medium block">Match Correct</span>
+                        <span id="res-match-score" class="font-display font-bold text-2xl text-purple-600">5/5</span>
+                    </div>
+                </div>
+
+                <div id="res-grade-badge" class="inline-block px-6 py-2 rounded-full font-display font-bold text-sm bg-emerald-100 text-emerald-800">
+                    Grade: Distinction ⭐⭐⭐
+                </div>
+
+                <div class="flex flex-wrap justify-center gap-4 pt-4">
+                    <button onclick="retakeAssessment()" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Retake Test
+                    </button>
+                    <button onclick="toggleAnswerKey()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md transition">
+                        <i class="fa-solid fa-key mr-1"></i> Review Correct Answers
+                    </button>
+                    <button onclick="switchTab('recap')" class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl text-sm shadow-md transition">
+                        View Learning Recap <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- DETAILED ANSWER REVIEW SECTION -->
+            <div id="answer-key-section" class="hidden bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <h3 class="font-display font-bold text-2xl text-slate-800">🔑 Detailed Answer Review Key</h3>
+                    <span class="text-xs text-slate-500 font-medium">Shows your answers vs correct answers</span>
+                </div>
+
+                <div id="answer-review-container" class="space-y-6">
+                    <!-- Dynamic review items generated here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-minigame" class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 text-center space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                    <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-semibold uppercase">Arcade Learning</span>
+                    <h2 class="font-display font-bold text-2xl text-slate-800 text-left mt-1">Time Rush Challenge ⏱️</h2>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400 block font-semibold">TIMER</span>
+                        <span id="game-timer" class="font-mono font-bold text-2xl text-rose-500">60s</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400 block font-semibold">HIGH SCORE</span>
+                        <span id="game-score" class="font-mono font-bold text-2xl text-brand-600">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Start Screen Overlay -->
+            <div id="game-start-screen" class="py-12 space-y-4">
+                <div class="w-20 h-20 bg-purple-100 text-purple-600 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-md animate-bounce-subtle">
+                    <i class="fa-solid fa-stopwatch"></i>
+                </div>
+                <h3 class="font-display font-bold text-2xl text-slate-800">Match the Written Time!</h3>
+                <p class="text-slate-500 text-sm max-w-md mx-auto">Read the prompt in English and select the matching analog clock before time runs out!</p>
+                <button onclick="startGame()" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-display font-semibold text-lg rounded-2xl shadow-lg shadow-purple-600/30 transition active:scale-95">
+                    <i class="fa-solid fa-play mr-2"></i> Start Game
+                </button>
+            </div>
+
+            <!-- Playing Screen -->
+            <div id="game-play-screen" class="hidden space-y-6">
+                <div class="bg-purple-50 border border-purple-100 p-6 rounded-2xl">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-purple-600 block mb-1">Target English Phrase:</span>
+                    <h3 id="game-target-phrase" class="font-display font-bold text-2xl sm:text-3xl text-slate-800">"It's a quarter past four."</h3>
+                </div>
+
+                <!-- Clock Options -->
+                <div id="game-options-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <!-- Dynamic option buttons -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-reflection" class="flex-grow max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
+            <div class="text-center max-w-xl mx-auto space-y-2">
+                <span class="bg-rose-100 text-rose-800 px-3 py-1 rounded-full text-xs font-semibold uppercase">Self Reflection</span>
+                <h2 class="font-display font-bold text-3xl text-slate-800">Student Learning Journal 💭</h2>
+                <p class="text-slate-500 text-sm">Reflect on what you have learned today. How confident do you feel about telling time in English?</p>
+            </div>
+
+            <form id="reflection-form" onsubmit="saveReflection(event)" class="space-y-6">
+                <!-- Question 1: Confidence -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-3">1. How confident do you feel reading clocks in English?</label>
+                    <div class="flex justify-between max-w-md mx-auto">
+                        <label class="cursor-pointer text-center group">
+                            <input type="radio" name="confidence" value="Needs Practice" required class="peer hidden">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 peer-checked:bg-rose-500 peer-checked:text-white flex items-center justify-center text-2xl transition shadow-sm group-hover:scale-105">
+                                😟
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-medium block mt-1">Need Help</span>
+                        </label>
+                        <label class="cursor-pointer text-center group">
+                            <input type="radio" name="confidence" value="Getting There" class="peer hidden">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 peer-checked:bg-amber-500 peer-checked:text-white flex items-center justify-center text-2xl transition shadow-sm group-hover:scale-105">
+                                😐
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-medium block mt-1">Okay</span>
+                        </label>
+                        <label class="cursor-pointer text-center group">
+                            <input type="radio" name="confidence" value="Good" class="peer hidden">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 peer-checked:bg-brand-500 peer-checked:text-white flex items-center justify-center text-2xl transition shadow-sm group-hover:scale-105">
+                                🙂
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-medium block mt-1">Good</span>
+                        </label>
+                        <label class="cursor-pointer text-center group">
+                            <input type="radio" name="confidence" value="Mastered" class="peer hidden">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-100 peer-checked:bg-emerald-500 peer-checked:text-white flex items-center justify-center text-2xl transition shadow-sm group-hover:scale-105">
+                                😄
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-medium block mt-1">Mastered!</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Question 2: Concepts -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-3">2. Which concepts can you explain comfortably?</label>
+                    <div class="space-y-2 text-sm text-slate-700">
+                        <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                            <input type="checkbox" name="concept" value="Analog vs Digital" class="rounded text-brand-500 focus:ring-brand-500 w-4 h-4">
+                            <span>Reading Hour and Minute hands on Analog clocks</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                            <input type="checkbox" name="concept" value="O'Clock and Half Past" class="rounded text-brand-500 focus:ring-brand-500 w-4 h-4">
+                            <span>Using <strong>o'clock</strong> and <strong>half past</strong></span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                            <input type="checkbox" name="concept" value="Quarter Past and To" class="rounded text-brand-500 focus:ring-brand-500 w-4 h-4">
+                            <span>Using <strong>a quarter past</strong> and <strong>a quarter to</strong></span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                            <input type="checkbox" name="concept" value="AM and PM" class="rounded text-brand-500 focus:ring-brand-500 w-4 h-4">
+                            <span>Distinguishing between <strong>a.m.</strong> (morning) and <strong>p.m.</strong> (afternoon/night)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Question 3: Text -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">3. What was the most fun or challenging part of this lesson?</label>
+                    <textarea id="reflection-text" rows="3" required placeholder="Write your thoughts here..." class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition text-sm"></textarea>
+                </div>
+
+                <button type="submit" class="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white font-display font-semibold text-lg rounded-xl shadow-lg shadow-brand-500/25 transition active:scale-[0.98]">
+                    Submit Reflection Journal <i class="fa-solid fa-paper-plane ml-1"></i>
+                </button>
+            </form>
+
+            <div id="reflection-summary" class="hidden bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-3">
+                <i class="fa-solid fa-circle-check text-3xl text-emerald-500"></i>
+                <h4 class="font-display font-bold text-xl text-emerald-900">Reflection Saved!</h4>
+                <p class="text-xs text-emerald-700">Thank you for reflecting on your progress. Check out your full learning report in the Recap section!</p>
+            </div>
+        </div>
+    </main>
+
+    <main id="section-recap" class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-8">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+                <div>
+                    <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold uppercase">Progress Dashboard</span>
+                    <h2 class="font-display font-bold text-3xl text-slate-800 mt-1">Learning Process Recap 📊</h2>
+                    <p class="text-slate-500 text-sm">Summary report of student performance across all learning modules.</p>
+                </div>
+                <button onclick="window.print()" class="no-print px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> Print Summary Report
+                </button>
+            </div>
+
+            <!-- Student Profile Badge -->
+            <div class="bg-gradient-to-r from-brand-50 to-indigo-50 border border-brand-100 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-2xl bg-brand-500 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-display font-bold text-xl text-slate-800" id="recap-student-name">Alex Johnson</h3>
+                        <p class="text-xs font-semibold text-brand-600" id="recap-student-class">CLASS 7A</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Subject: English | Topic: Telling Time</p>
+                    </div>
+                </div>
+                <div class="text-right sm:border-l sm:border-slate-200 sm:pl-6">
+                    <span class="text-xs text-slate-400 block font-medium">Overall Progress Status</span>
+                    <span id="recap-overall-status" class="inline-block mt-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">
+                        Active Explorer 🌟
+                    </span>
+                </div>
+            </div>
+
+            <!-- Learning Module Breakdown Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Module 1: Material -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center space-y-2">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl mx-auto flex items-center justify-center">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <h4 class="font-display font-bold text-sm text-slate-800">1. Material Sandbox</h4>
+                    <span class="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Completed</span>
+                    <p class="text-[11px] text-slate-500">Explored analog clock hands & time grammar.</p>
+                </div>
+
+                <!-- Module 2: Practice -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center space-y-2">
+                    <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl mx-auto flex items-center justify-center">
+                        <i class="fa-solid fa-pen-ruler"></i>
+                    </div>
+                    <h4 class="font-display font-bold text-sm text-slate-800">2. Guided Practice</h4>
+                    <span id="recap-practice-score" class="font-display font-bold text-xl text-amber-600 block">0 / 100</span>
+                    <p class="text-[11px] text-slate-500">10 Multiple Choice Practice Questions.</p>
+                </div>
+
+                <!-- Module 3: Assessment -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center space-y-2">
+                    <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl mx-auto flex items-center justify-center">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </div>
+                    <h4 class="font-display font-bold text-sm text-slate-800">3. Assessment</h4>
+                    <span id="recap-assessment-score" class="font-display font-bold text-xl text-emerald-600 block">Not Taken</span>
+                    <p class="text-[11px] text-slate-500">20 Items (MCQ, Fill, Matching).</p>
+                </div>
+
+                <!-- Module 4: Mini Game -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-center space-y-2">
+                    <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-xl mx-auto flex items-center justify-center">
+                        <i class="fa-solid fa-gamepad"></i>
+                    </div>
+                    <h4 class="font-display font-bold text-sm text-slate-800">4. Mini Game</h4>
+                    <span id="recap-game-score" class="font-display font-bold text-xl text-purple-600 block">0 pts</span>
+                    <p class="text-[11px] text-slate-500">Time Rush Arcade Challenge High Score.</p>
+                </div>
+            </div>
+
+            <!-- Detailed Learning Reflection Summary -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-3">
+                <h4 class="font-display font-bold text-base text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-face-smile text-rose-500"></i> Reflection & Self Evaluation Journal
+                </h4>
+                <div id="recap-reflection-content" class="text-xs text-slate-600 space-y-2">
+                    <p><em>Reflection journal not submitted yet. Complete the Reflection tab to record your thoughts!</em></p>
+                </div>
+            </div>
+
+            <!-- Action Prompt -->
+            <div class="flex justify-center gap-4 pt-4">
+                <button onclick="switchTab('practice')" class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl text-sm transition shadow-md">
+                    <i class="fa-solid fa-play mr-1"></i> Continue Practice
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // GLOBAL APP STATE
+        const state = {
+            studentName: 'Alex Johnson',
+            studentClass: 'CLASS 7A',
+            activeTab: 'material',
+            sandboxHour: 7,
+            sandboxMinute: 15,
+            sandboxPeriod: 'AM',
+            practiceIndex: 0,
+            practiceAnswers: new Array(10).fill(null),
+            practiceScore: 0,
+            gameScore: 0,
+            gameTimer: 60,
+            gameInterval: null,
+            currentTarget: null,
+            assessmentSubmitted: false,
+            assessmentResult: null
+        };
+
+        // PRACTICE QUESTIONS DATA (10 MCQ Items)
+        const practiceData = [
+            {
+                question: "What time is shown on this clock (03:00)?",
+                hour: 3, minute: 0,
+                options: ["It's three o'clock", "It's half past three", "It's three past twelve", "It's a quarter to three"],
+                answer: 0,
+                hint: "When the minute hand points straight up at 12, we use 'o'clock'."
+            },
+            {
+                question: "How do we say 08:15 in English?",
+                hour: 8, minute: 15,
+                options: ["It's eight to fifteen", "It's a quarter past eight", "It's fifteen to eight", "It's half past eight"],
+                answer: 1,
+                hint: "15 minutes after eight is 'a quarter past'."
+            },
+            {
+                question: "What is the English phrase for 05:30?",
+                hour: 5, minute: 30,
+                options: ["It's five o'clock", "It's a quarter past five", "It's half past five", "It's half to six"],
+                answer: 2,
+                hint: "30 minutes is half an hour, so we say 'half past'."
+            },
+            {
+                question: "How do we say 10:45 in standard English?",
+                hour: 10, minute: 45,
+                options: ["It's ten forty-five", "It's a quarter to ten", "It's a quarter to eleven", "It's a quarter past ten"],
+                answer: 2,
+                hint: "There are 15 minutes left until 11:00, so we say 'a quarter to eleven'."
+            },
+            {
+                question: "If class starts at 07:00 in the morning, which suffix is correct?",
+                hour: 7, minute: 0,
+                options: ["7:00 p.m.", "7:00 a.m.", "7:00 noon", "7:00 night"],
+                answer: 1,
+                hint: "Morning time between midnight and noon uses 'a.m.'."
+            },
+            {
+                question: "What phrase describes 02:10?",
+                hour: 2, minute: 10,
+                options: ["It's ten past two", "It's two to ten", "It's ten to two", "It's two past ten"],
+                answer: 0,
+                hint: "10 minutes past the hour of 2."
+            },
+            {
+                question: "How do you read 09:50 in English?",
+                hour: 9, minute: 50,
+                options: ["It's fifty past nine", "It's ten to nine", "It's ten to ten", "It's fifty to ten"],
+                answer: 2,
+                hint: "50 minutes means 10 minutes left until 10 o'clock ('ten to ten')."
+            },
+            {
+                question: "What is the correct expression for 12:00 during lunchtime?",
+                hour: 12, minute: 0,
+                options: ["12:00 a.m.", "12:00 p.m. (Noon)", "12:00 midnight", "12:00 to one"],
+                answer: 1,
+                hint: "Midday or lunchtime is 12:00 p.m."
+            },
+            {
+                question: "Which of the following means 15 minutes BEFORE 6:00?",
+                hour: 5, minute: 45,
+                options: ["A quarter past five", "A quarter past six", "A quarter to six", "Half past six"],
+                answer: 2,
+                hint: "15 minutes before 6 is 'a quarter to six'."
+            },
+            {
+                question: "What time does 'It's half past eleven' represent?",
+                hour: 11, minute: 30,
+                options: ["11:15", "11:30", "11:45", "12:30"],
+                answer: 1,
+                hint: "Half past means 30 minutes past the hour."
+            }
+        ];
+
+        // ASSESSMENT DATA (10 MCQ, 5 Fill, 5 Matching)
+        const assessmentMCQ = [
+            { id: 1, question: "What is the English phrase for 08:00?", choices: ["It's eight o'clock.", "It's eight to twelve.", "It's half past eight.", "It's eight past zero."], correct: 0, explanation: "08:00 has 0 minutes, so we say 'eight o'clock'." },
+            { id: 2, question: "How do you express 07:15 in words?", choices: ["It's fifteen to seven.", "It's a quarter past seven.", "It's seven to fifteen.", "It's a quarter to eight."], correct: 1, explanation: "15 minutes past 7 is 'a quarter past seven'." },
+            { id: 3, question: "Select the correct expression for 09:45:", choices: ["It's a quarter past nine.", "It's nine forty-five past.", "It's a quarter to ten.", "It's ten to nine."], correct: 2, explanation: "15 minutes before 10 is 'a quarter to ten'." },
+            { id: 4, question: "What time is 02:30?", choices: ["It's two past thirty.", "It's thirty to two.", "It's a quarter past two.", "It's half past two."], correct: 3, explanation: "30 minutes is half an hour, so we say 'half past two'." },
+            { id: 5, question: "Which digital time matches 'It's ten past five'?", choices: ["05:10", "05:50", "04:50", "10:05"], correct: 0, explanation: "10 minutes past 5 is written digitally as 05:10." },
+            { id: 6, question: "Which phrase describes 05:40?", choices: ["It's forty past five.", "It's twenty to five.", "It's twenty to six.", "It's forty to six."], correct: 2, explanation: "40 minutes means 20 minutes left until 6:00 ('twenty to six')." },
+            { id: 7, question: "We use 'a.m.' for time occurring between:", choices: ["12:00 noon and 12:00 midnight", "12:00 midnight and 12:00 noon", "6:00 p.m. and 6:00 a.m.", "Only in the afternoon"], correct: 1, explanation: "A.M. spans from midnight (12:00 a.m.) to noon (11:59 a.m.)." },
+            { id: 8, question: "Breakfast is usually eaten at 06:30 in the morning. How is this written?", choices: ["06:30 p.m.", "06:30 night", "06:30 noon", "06:30 a.m."], correct: 3, explanation: "Morning times use 'a.m.'." },
+            { id: 9, question: "If it is 11:50, how many minutes are remaining until 12:00?", choices: ["10 minutes ('ten to twelve')", "50 minutes ('fifty past eleven')", "15 minutes ('a quarter to twelve')", "20 minutes ('twenty to twelve')"], correct: 0, explanation: "60 - 50 = 10 minutes left until 12:00 ('ten to twelve')." },
+            { id: 10, question: "Which statement about 03:15 p.m. is TRUE?", choices: ["It is 3:15 in the middle of the night.", "It is 15 minutes before 3:00.", "It is a quarter past three in the afternoon.", "It is a quarter to three in the afternoon."], correct: 2, explanation: "3:15 p.m. is 15 minutes past 3 in the afternoon." }
+        ];
+
+        const assessmentFill = [
+            { id: 1, prompt: "04:00 -> It is four _______ .", answer: "o'clock", explanation: "On the exact hour, use 'o'clock'." },
+            { id: 2, prompt: "06:30 -> It is half _______ six.", answer: "past", explanation: "30 minutes past uses 'past'." },
+            { id: 3, prompt: "08:45 -> It is a quarter _______ nine.", answer: "to", explanation: "15 minutes before 9 uses 'to'." },
+            { id: 4, prompt: "12:00 at midnight is written as 12:00 _______ .", answer: "a.m.", explanation: "Midnight marks the beginning of A.M." },
+            { id: 5, prompt: "01:15 -> It is a _______ past one.", answer: "quarter", explanation: "15 minutes is 'a quarter'." }
+        ];
+
+        const assessmentMatching = [
+            { id: 1, time: "03:00", matchText: "Three o'clock" },
+            { id: 2, time: "04:15", matchText: "A quarter past four" },
+            { id: 3, time: "05:30", matchText: "Half past five" },
+            { id: 4, time: "06:45", matchText: "A quarter to seven" },
+            { id: 5, time: "11:50", matchText: "Ten to twelve" }
+        ];
+
+        
+        // Identity Management
+        function saveIdentity(e) {
+            e.preventDefault();
+            SoundFX.playClick();
+            const name = document.getElementById('input-name').value.trim();
+            const classVal = document.getElementById('input-class').value;
+            
+            if (!name) return;
+            state.studentName = name;
+            state.studentClass = classVal;
+
+            document.getElementById('display-user-name').innerText = name;
+            document.getElementById('display-user-class').innerText = classVal;
+            document.getElementById('recap-student-name').innerText = name;
+            document.getElementById('recap-student-class').innerText = classVal;
+
+            document.getElementById('section-identity').classList.add('hidden');
+            document.getElementById('app-header').classList.remove('hidden');
+            switchTab('material');
+        }
+
+        function editIdentity() {
+            SoundFX.playClick();
+            document.getElementById('app-header').classList.add('hidden');
+            ['material', 'practice', 'assessment', 'minigame', 'reflection', 'recap'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+            });
+            document.getElementById('section-identity').classList.remove('hidden');
+        }
+
+        // Tab Navigation Controller
+        function switchTab(tab) {
+            SoundFX.playClick();
+            state.activeTab = tab;
+
+            ['material', 'practice', 'assessment', 'minigame', 'reflection', 'recap'].forEach(t => {
+                const el = document.getElementById(`section-${t}`);
+                const navBtn = document.getElementById(`nav-${t}`);
+                if (el) el.classList.add('hidden');
+                if (navBtn) navBtn.classList.remove('bg-slate-100', 'text-brand-600', 'font-bold');
+            });
+
+            const activeEl = document.getElementById(`section-${tab}`);
+            const activeNav = document.getElementById(`nav-${tab}`);
+            if (activeEl) activeEl.classList.remove('hidden');
+            if (activeNav) activeNav.classList.add('bg-slate-100', 'text-brand-600', 'font-bold');
+
+            if (tab === 'material') {
+                renderSandboxClock();
+            } else if (tab === 'practice') {
+                renderPracticeQuestion();
+            } else if (tab === 'assessment') {
+                renderAssessmentUI();
+            } else if (tab === 'recap') {
+                updateRecapUI();
+            }
+        }
+
+        function drawClock(canvasId, hour, minute) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const radius = width / 2 - 10;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Clock Face
+            ctx.beginPath();
+            ctx.arc(width/2, height/2, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#1e293b';
+            ctx.stroke();
+
+            // Numbers
+            ctx.font = 'bold 14px Fredoka, sans-serif';
+            ctx.fillStyle = '#334155';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let num = 1; num <= 12; num++) {
+                const ang = num * Math.PI / 6;
+                const x = width/2 + Math.sin(ang) * (radius - 22);
+                const y = height/2 - Math.cos(ang) * (radius - 22);
+                ctx.fillText(num.toString(), x, y);
+            }
+
+            // Ticks
+            for (let i = 0; i < 60; i++) {
+                const ang = i * Math.PI / 30;
+                const inner = (i % 5 === 0) ? radius - 10 : radius - 5;
+                const x1 = width/2 + Math.sin(ang) * inner;
+                const y1 = height/2 - Math.cos(ang) * inner;
+                const x2 = width/2 + Math.sin(ang) * radius;
+                const y2 = height/2 - Math.cos(ang) * radius;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.lineWidth = (i % 5 === 0) ? 2 : 1;
+                ctx.strokeStyle = (i % 5 === 0) ? '#475569' : '#cbd5e1';
+                ctx.stroke();
+            }
+
+            // Angles
+            const hourAngle = ((hour % 12) + minute / 60) * Math.PI / 6;
+            const minuteAngle = (minute) * Math.PI / 30;
+
+            // Hour Hand
+            ctx.beginPath();
+            ctx.moveTo(width/2, height/2);
+            ctx.lineTo(
+                width/2 + Math.sin(hourAngle) * (radius * 0.5),
+                height/2 - Math.cos(hourAngle) * (radius * 0.5)
+            );
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Minute Hand
+            ctx.beginPath();
+            ctx.moveTo(width/2, height/2);
+            ctx.lineTo(
+                width/2 + Math.sin(minuteAngle) * (radius * 0.75),
+                height/2 - Math.cos(minuteAngle) * (radius * 0.75)
+            );
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#0ea5e9';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Center Pin
+            ctx.beginPath();
+            ctx.arc(width/2, height/2, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+        }
+
+        function setPeriod(period) {
+            SoundFX.playClick();
+            state.sandboxPeriod = period;
+            const btnAM = document.getElementById('btn-toggle-am');
+            const btnPM = document.getElementById('btn-toggle-pm');
+            
+            if (period === 'AM') {
+                btnAM.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-amber-400 text-slate-900 shadow-sm transition';
+                btnPM.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 transition';
+            } else {
+                btnPM.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm transition';
+                btnAM.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 transition';
+            }
+            updateSandboxClock();
+        }
+
+        function setSandboxTime(h, m) {
+            SoundFX.playClick();
+            document.getElementById('slider-hour').value = h;
+            document.getElementById('slider-minute').value = m;
+            updateSandboxClock();
+        }
+
+        function updateSandboxClock() {
+            state.sandboxHour = parseInt(document.getElementById('slider-hour').value);
+            state.sandboxMinute = parseInt(document.getElementById('slider-minute').value);
+            
+            document.getElementById('val-hour').innerText = state.sandboxHour;
+            document.getElementById('val-minute').innerText = state.sandboxMinute;
+
+            renderSandboxClock();
+        }
+
+        function convertToEnglish(h, m) {
+            const numbers = ["twelve", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+            
+            let mainText = "";
+            let explanation = "";
+
+            if (m === 0) {
+                mainText = `It's ${numbers[h]} o'clock.`;
+                explanation = `Minute is 0, so we simply add <strong>o'clock</strong> after the hour.`;
+            } else if (m === 15) {
+                mainText = `It's a quarter past ${numbers[h]}.`;
+                explanation = `15 minutes is a quarter of an hour. Use <strong>a quarter past</strong>.`;
+            } else if (m === 30) {
+                mainText = `It's half past ${numbers[h]}.`;
+                explanation = `30 minutes is half an hour. Use <strong>half past</strong>.`;
+            } else if (m === 45) {
+                const nextHour = (h % 12) + 1;
+                mainText = `It's a quarter to ${numbers[nextHour]}.`;
+                explanation = `45 minutes means 15 minutes left until ${numbers[nextHour]}. Use <strong>a quarter to</strong>.`;
+            } else if (m < 30) {
+                mainText = `It's ${m} minutes past ${numbers[h]}.`;
+                explanation = `Minutes from 1-29 use <strong>past</strong> [hour].`;
+            } else {
+                const remaining = 60 - m;
+                const nextHour = (h % 12) + 1;
+                mainText = `It's ${remaining} minutes to ${numbers[nextHour]}.`;
+                explanation = `Minutes from 31-59 count down to the next hour using <strong>to</strong> [next hour].`;
+            }
+
+            return { mainText, explanation };
+        }
+
+        function renderSandboxClock() {
+            drawClock('material-clock-canvas', state.sandboxHour, state.sandboxMinute);
+
+            const hh = state.sandboxHour.toString().padStart(2, '0');
+            const mm = state.sandboxMinute.toString().padStart(2, '0');
+            
+            document.getElementById('sandbox-digital-time').innerText = `${hh}:${mm}`;
+            document.getElementById('sandbox-ampm').innerText = state.sandboxPeriod;
+
+            const english = convertToEnglish(state.sandboxHour, state.sandboxMinute);
+            document.getElementById('sandbox-english-text').innerText = `"${english.mainText}"`;
+            document.getElementById('sandbox-explanation').innerHTML = english.explanation;
+        }
+
+        function renderPracticeQuestion() {
+            const q = practiceData[state.practiceIndex];
+            document.getElementById('practice-progress-text').innerText = `Question ${state.practiceIndex + 1} of ${practiceData.length}`;
+            
+            // Calculate current practice score
+            const correctCount = state.practiceAnswers.filter(a => a === true).length;
+            state.practiceScore = correctCount * 10;
+            document.getElementById('practice-score-text').innerText = `Practice Score: ${state.practiceScore}/100`;
+
+            document.getElementById('btn-practice-prev').disabled = state.practiceIndex === 0;
+
+            const nextBtn = document.getElementById('btn-practice-next');
+            if (state.practiceIndex === practiceData.length - 1) {
+                nextBtn.innerHTML = `Finish Practice & Take Assessment <i class="fa-solid fa-arrow-right"></i>`;
+                nextBtn.className = "px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-xl transition shadow-md shadow-emerald-500/20";
+            } else {
+                nextBtn.innerHTML = `Next <i class="fa-solid fa-arrow-right"></i>`;
+                nextBtn.className = "px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition shadow-md shadow-brand-500/20";
+            }
+
+            const box = document.getElementById('practice-box');
+            box.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    <div class="flex flex-col items-center justify-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <canvas id="practice-clock-canvas" width="200" height="200" class="bg-white rounded-full shadow-inner border-2 border-slate-800"></canvas>
+                        <span class="mt-3 font-mono font-bold text-lg text-slate-700">${q.hour.toString().padStart(2, '0')}:${q.minute.toString().padStart(2, '0')}</span>
+                    </div>
+                    <div class="space-y-4">
+                        <h3 class="font-display font-bold text-xl text-slate-800">${q.question}</h3>
+                        <div class="space-y-2">
+                            ${q.options.map((opt, idx) => `
+                                <button onclick="checkPracticeAnswer(${idx})" class="practice-opt-btn w-full text-left p-3 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-brand-50 transition text-sm font-medium text-slate-700 flex items-center justify-between">
+                                    <span>${opt}</span>
+                                    <i class="fa-regular fa-circle text-slate-300"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('practice-feedback').classList.add('hidden');
+            setTimeout(() => {
+                drawClock('practice-clock-canvas', q.hour, q.minute);
+            }, 50);
+        }
+
+        function checkPracticeAnswer(optIndex) {
+            const q = practiceData[state.practiceIndex];
+            const feedbackBox = document.getElementById('practice-feedback');
+            const feedbackIcon = document.getElementById('practice-feedback-icon');
+            const feedbackMsg = document.getElementById('practice-feedback-msg');
+
+            const buttons = document.querySelectorAll('.practice-opt-btn');
+            buttons.forEach(b => b.disabled = true);
+
+            const isCorrect = optIndex === q.answer;
+            state.practiceAnswers[state.practiceIndex] = isCorrect;
+
+            const correctCount = state.practiceAnswers.filter(a => a === true).length;
+            state.practiceScore = correctCount * 10;
+            document.getElementById('practice-score-text').innerText = `Practice Score: ${state.practiceScore}/100`;
+
+            if (isCorrect) {
+                SoundFX.playCorrect();
+                feedbackBox.className = "mt-6 p-4 rounded-xl flex items-start gap-3 text-sm bg-emerald-50 text-emerald-900 border border-emerald-200";
+                feedbackIcon.className = "fa-solid fa-circle-check text-emerald-500 text-xl mt-0.5";
+                feedbackMsg.innerHTML = `<strong>Correct!</strong> ${q.hint}`;
+            } else {
+                SoundFX.playWrong();
+                feedbackBox.className = "mt-6 p-4 rounded-xl flex items-start gap-3 text-sm bg-rose-50 text-rose-900 border border-rose-200";
+                feedbackIcon.className = "fa-solid fa-circle-xmark text-rose-500 text-xl mt-0.5";
+                feedbackMsg.innerHTML = `<strong>Not quite!</strong> Correct answer: "${q.options[q.answer]}". ${q.hint}`;
+            }
+
+            feedbackBox.classList.remove('hidden');
+        }
+
+        function changePracticeQuestion(dir) {
+            SoundFX.playClick();
+            if (state.practiceIndex === practiceData.length - 1 && dir === 1) {
+                // Completed Practice -> Switch to Assessment
+                switchTab('assessment');
+                return;
+            }
+            state.practiceIndex += dir;
+            if (state.practiceIndex < 0) state.practiceIndex = 0;
+            renderPracticeQuestion();
+        }
+
+        function renderAssessmentUI() {
+            // Part A: MCQ
+            const mcqBox = document.getElementById('mcq-questions-list');
+            mcqBox.innerHTML = assessmentMCQ.map((item, idx) => `
+                <div class="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p class="font-semibold text-slate-800 text-sm"><span class="text-brand-600 font-bold">${idx + 1}.</span> ${item.question}</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${item.choices.map((c, cIdx) => `
+                            <label class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-brand-400 cursor-pointer text-xs font-medium text-slate-700 transition">
+                                <input type="radio" name="mcq-${item.id}" value="${cIdx}" class="text-brand-500 focus:ring-brand-500">
+                                <span>${c}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            // Part B: Fill
+            const fillBox = document.getElementById('fill-questions-list');
+            fillBox.innerHTML = assessmentFill.map((item, idx) => `
+                <div class="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <label class="block font-semibold text-slate-800 text-sm"><span class="text-amber-600 font-bold">${idx + 1}.</span> ${item.prompt}</label>
+                    <input type="text" id="fill-input-${item.id}" placeholder="Type missing word..." class="w-full sm:w-64 p-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+            `).join('');
+
+            // Part C: Shuffled Matching Options
+            const allMatchTexts = assessmentMatching.map(m => m.matchText);
+            // Create a randomized copy of options
+            const shuffledTexts = [...allMatchTexts].sort(() => Math.random() - 0.5);
+
+            const matchBox = document.getElementById('matching-questions-list');
+            matchBox.innerHTML = assessmentMatching.map((item, idx) => `
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-mono font-bold text-lg text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-xl">⏰ ${item.time}</span>
+                        <span class="text-xs text-slate-400">Match #${idx + 1}</span>
+                    </div>
+                    <select id="match-select-${item.id}" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="">-- Choose Matching Expression --</option>
+                        ${shuffledTexts.map(t => `<option value="${t}">${t}</option>`).join('')}
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        function submitAssessment() {
+            SoundFX.playClick();
+
+            let mcqCorrect = 0;
+            let fillCorrect = 0;
+            let matchCorrect = 0;
+
+            const userMCQ = [];
+            const userFill = [];
+            const userMatch = [];
+
+            // Check MCQ
+            assessmentMCQ.forEach(item => {
+                const selected = document.querySelector(`input[name="mcq-${item.id}"]:checked`);
+                const val = selected ? parseInt(selected.value) : -1;
+                const isCorrect = val === item.correct;
+                if (isCorrect) mcqCorrect++;
+                userMCQ.push({ item, userVal: val, isCorrect });
+            });
+
+            // Check Fill
+            assessmentFill.forEach(item => {
+                const val = document.getElementById(`fill-input-${item.id}`).value.trim();
+                const isCorrect = val.toLowerCase() === item.answer.toLowerCase();
+                if (isCorrect) fillCorrect++;
+                userFill.push({ item, userVal: val, isCorrect });
+            });
+
+            // Check Matching
+            assessmentMatching.forEach(item => {
+                const val = document.getElementById(`match-select-${item.id}`).value;
+                const isCorrect = val === item.matchText;
+                if (isCorrect) matchCorrect++;
+                userMatch.push({ item, userVal: val, isCorrect });
+            });
+
+            const totalScore = (mcqCorrect * 5) + (fillCorrect * 5) + (matchCorrect * 5);
+
+            state.assessmentSubmitted = true;
+            state.assessmentResult = {
+                totalScore,
+                mcqCorrect,
+                fillCorrect,
+                matchCorrect,
+                userMCQ,
+                userFill,
+                userMatch
+            };
+
+            document.getElementById('res-student-name').innerText = state.studentName || 'Student Explorer';
+            document.getElementById('res-student-class').innerText = state.studentClass;
+            document.getElementById('res-final-score').innerText = totalScore;
+            document.getElementById('res-mcq-score').innerText = `${mcqCorrect}/10`;
+            document.getElementById('res-fill-score').innerText = `${fillCorrect}/5`;
+            document.getElementById('res-match-score').innerText = `${matchCorrect}/5`;
+
+            const badge = document.getElementById('res-grade-badge');
+            if (totalScore >= 85) {
+                badge.className = "inline-block px-6 py-2 rounded-full font-display font-bold text-sm bg-emerald-100 text-emerald-800";
+                badge.innerText = "Grade: Distinction ⭐⭐⭐";
+            } else if (totalScore >= 70) {
+                badge.className = "inline-block px-6 py-2 rounded-full font-display font-bold text-sm bg-amber-100 text-amber-800";
+                badge.innerText = "Grade: Good Progress ⭐⭐";
+            } else {
+                badge.className = "inline-block px-6 py-2 rounded-full font-display font-bold text-sm bg-rose-100 text-rose-800";
+                badge.innerText = "Grade: Keep Practicing ⭐";
+            }
+
+            document.getElementById('assessment-container').classList.add('hidden');
+            document.getElementById('assessment-result-modal').classList.remove('hidden');
+
+            renderAnswerReviewKey();
+
+            if (totalScore >= 70) {
+                SoundFX.playCorrect();
+            } else {
+                SoundFX.playWrong();
+            }
+        }
+
+        function toggleAnswerKey() {
+            SoundFX.playClick();
+            const keySection = document.getElementById('answer-key-section');
+            keySection.classList.toggle('hidden');
+            if (!keySection.classList.contains('hidden')) {
+                keySection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function renderAnswerReviewKey() {
+            if (!state.assessmentResult) return;
+            const res = state.assessmentResult;
+            const container = document.getElementById('answer-review-container');
+
+            let html = `
+                <!-- MCQ Review -->
+                <div class="space-y-4">
+                    <h4 class="font-display font-bold text-lg text-brand-700 border-b border-brand-100 pb-2">Part A: Multiple Choice Review</h4>
+                    ${res.userMCQ.map((u, idx) => `
+                        <div class="p-4 rounded-2xl border ${u.isCorrect ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'} space-y-2">
+                            <div class="flex items-start justify-between">
+                                <p class="text-sm font-semibold text-slate-800"><span class="font-bold">${idx + 1}.</span> ${u.item.question}</p>
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${u.isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}">
+                                    ${u.isCorrect ? '✓ Correct (+5)' : '✗ Incorrect (0)'}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-600">Your Answer: <strong class="${u.isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${u.userVal >= 0 ? u.item.choices[u.userVal] : 'None Selected'}</strong></p>
+                            ${!u.isCorrect ? `<p class="text-xs text-emerald-700">Correct Answer: <strong>${u.item.choices[u.item.correct]}</strong></p>` : ''}
+                            <p class="text-xs text-slate-500 italic bg-white/80 p-2.5 rounded-xl border border-slate-100">💡 Explanation: ${u.item.explanation}</p>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Fill Review -->
+                <div class="space-y-4 pt-4">
+                    <h4 class="font-display font-bold text-lg text-amber-700 border-b border-amber-100 pb-2">Part B: Fill in the Blank Review</h4>
+                    ${res.userFill.map((u, idx) => `
+                        <div class="p-4 rounded-2xl border ${u.isCorrect ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'} space-y-2">
+                            <div class="flex items-start justify-between">
+                                <p class="text-sm font-semibold text-slate-800"><span class="font-bold">${idx + 1}.</span> ${u.item.prompt}</p>
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${u.isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}">
+                                    ${u.isCorrect ? '✓ Correct (+5)' : '✗ Incorrect (0)'}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-600">Your Answer: <strong class="${u.isCorrect ? 'text-emerald-700' : 'text-rose-700'}">"${u.userVal || 'Empty'}"</strong></p>
+                            ${!u.isCorrect ? `<p class="text-xs text-emerald-700">Correct Word: <strong>"${u.item.answer}"</strong></p>` : ''}
+                            <p class="text-xs text-slate-500 italic bg-white/80 p-2.5 rounded-xl border border-slate-100">💡 Rule: ${u.item.explanation}</p>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Matching Review -->
+                <div class="space-y-4 pt-4">
+                    <h4 class="font-display font-bold text-lg text-purple-700 border-b border-purple-100 pb-2">Part C: Matching Pairs Review</h4>
+                    ${res.userMatch.map((u, idx) => `
+                        <div class="p-4 rounded-2xl border ${u.isCorrect ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'} space-y-2">
+                            <div class="flex items-start justify-between">
+                                <p class="text-sm font-semibold text-slate-800"><span class="font-bold">${idx + 1}.</span> Digital Time: <strong class="font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded">${u.item.time}</strong></p>
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-full ${u.isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}">
+                                    ${u.isCorrect ? '✓ Correct (+5)' : '✗ Incorrect (0)'}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-600">Your Choice: <strong class="${u.isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${u.userVal || 'None Selected'}</strong></p>
+                            ${!u.isCorrect ? `<p class="text-xs text-emerald-700">Correct Match: <strong>"${u.item.matchText}"</strong></p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function retakeAssessment() {
+            SoundFX.playClick();
+            state.assessmentSubmitted = false;
+            document.getElementById('assessment-container').classList.remove('hidden');
+            document.getElementById('assessment-result-modal').classList.add('hidden');
+            document.getElementById('answer-key-section').classList.add('hidden');
+            renderAssessmentUI();
+        }
+
+        const miniGamePrompts = [
+            { text: "It's three o'clock", hour: 3, minute: 0 },
+            { text: "It's a quarter past four", hour: 4, minute: 15 },
+            { text: "It's half past seven", hour: 7, minute: 30 },
+            { text: "It's a quarter to nine", hour: 8, minute: 45 },
+            { text: "It's ten to twelve", hour: 11, minute: 50 },
+            { text: "It's half past ten", hour: 10, minute: 30 },
+            { text: "It's a quarter past two", hour: 2, minute: 15 }
+        ];
+
+        function startGame() {
+            SoundFX.playClick();
+            state.gameTimer = 60;
+
+            document.getElementById('game-score').innerText = state.gameScore;
+            document.getElementById('game-timer').innerText = '60s';
+
+            document.getElementById('game-start-screen').classList.add('hidden');
+            document.getElementById('game-play-screen').classList.remove('hidden');
+
+            nextGameRound();
+
+            if (state.gameInterval) clearInterval(state.gameInterval);
+            state.gameInterval = setInterval(() => {
+                state.gameTimer--;
+                document.getElementById('game-timer').innerText = `${state.gameTimer}s`;
+                if (state.gameTimer <= 0) {
+                    clearInterval(state.gameInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function nextGameRound() {
+            const randomTarget = miniGamePrompts[Math.floor(Math.random() * miniGamePrompts.length)];
+            state.currentTarget = randomTarget;
+
+            document.getElementById('game-target-phrase').innerText = `"${randomTarget.text}"`;
+
+            let choices = [{ h: randomTarget.hour, m: randomTarget.minute, correct: true }];
+
+            while (choices.length < 4) {
+                const randH = Math.floor(Math.random() * 12) + 1;
+                const randM = [0, 15, 30, 45, 50][Math.floor(Math.random() * 5)];
+                if (!choices.some(c => c.h === randH && c.m === randM)) {
+                    choices.push({ h: randH, m: randM, correct: false });
+                }
+            }
+
+            choices.sort(() => Math.random() - 0.5);
+
+            const grid = document.getElementById('game-options-grid');
+            grid.innerHTML = choices.map((c, idx) => `
+                <button onclick="pickGameAnswer(${c.correct})" class="bg-white border-2 border-slate-200 hover:border-purple-500 rounded-2xl p-4 flex flex-col items-center justify-center transition hover:shadow-md active:scale-95 group">
+                    <canvas id="game-clock-${idx}" width="110" height="110" class="mb-2"></canvas>
+                    <span class="font-mono font-bold text-slate-700 group-hover:text-purple-600 text-sm">
+                        ${c.h.toString().padStart(2, '0')}:${c.m.toString().padStart(2, '0')}
+                    </span>
+                </button>
+            `).join('');
+
+            setTimeout(() => {
+                choices.forEach((c, idx) => {
+                    drawClock(`game-clock-${idx}`, c.h, c.m);
+                });
+            }, 50);
+        }
+
+        function pickGameAnswer(isCorrect) {
+            if (isCorrect) {
+                SoundFX.playCorrect();
+                state.gameScore += 10;
+                document.getElementById('game-score').innerText = state.gameScore;
+            } else {
+                SoundFX.playWrong();
+            }
+            nextGameRound();
+        }
+
+        function endGame() {
+            document.getElementById('game-play-screen').classList.add('hidden');
+            const startScreen = document.getElementById('game-start-screen');
+            startScreen.classList.remove('hidden');
+            startScreen.innerHTML = `
+                <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-md">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <h3 class="font-display font-bold text-3xl text-slate-800">Time's Up!</h3>
+                <p class="text-slate-600 font-medium">Your Arcade High Score: <strong class="text-purple-600 text-2xl font-mono">${state.gameScore} pts</strong></p>
+                <button onclick="startGame()" class="px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-display font-semibold text-lg rounded-2xl shadow-lg shadow-purple-600/30 transition active:scale-95">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Play Again
+                </button>
+            `;
+        }
+
+        function saveReflection(e) {
+            e.preventDefault();
+            SoundFX.playCorrect();
+            document.getElementById('reflection-form').classList.add('hidden');
+            document.getElementById('reflection-summary').classList.remove('hidden');
+            updateRecapUI();
+        }
+
+        function updateRecapUI() {
+            document.getElementById('recap-student-name').innerText = state.studentName;
+            document.getElementById('recap-student-class').innerText = state.studentClass;
+            document.getElementById('recap-practice-score').innerText = `${state.practiceScore} / 100`;
+
+            if (state.assessmentSubmitted && state.assessmentResult) {
+                document.getElementById('recap-assessment-score').innerText = `${state.assessmentResult.totalScore} / 100`;
+            } else {
+                document.getElementById('recap-assessment-score').innerText = "Not Taken";
+            }
+
+            document.getElementById('recap-game-score').innerText = `${state.gameScore} pts`;
+
+            // Reflection content
+            const confidenceChecked = document.querySelector('input[name="confidence"]:checked');
+            const conceptsChecked = Array.from(document.querySelectorAll('input[name="concept"]:checked')).map(c => c.value);
+            const refText = document.getElementById('reflection-text').value.trim();
+
+            if (confidenceChecked || conceptsChecked.length > 0 || refText) {
+                document.getElementById('recap-reflection-content').innerHTML = `
+                    <p><strong>Confidence Level:</strong> ${confidenceChecked ? confidenceChecked.value : 'Not specified'}</p>
+                    <p><strong>Mastered Concepts:</strong> ${conceptsChecked.length ? conceptsChecked.join(', ') : 'None selected'}</p>
+                    <p><strong>Journal Thoughts:</strong> "${refText || 'No notes added'}"</p>
+                `;
+            }
+        }
+
+        window.onload = function() {
+            renderSandboxClock();
+        };
+    </script>
+</body>
+</html>
